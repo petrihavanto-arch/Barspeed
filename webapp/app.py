@@ -28,12 +28,3 @@ def create_app(args) -> Flask:
     return app
 
 
-if __name__ == "__main__":
-    import argparse
-    p = argparse.ArgumentParser()
-    p.add_argument("--platform", choices=["rpi", "pc"], default="rpi")
-    p.add_argument("--adc-channel", type=int, default=0)
-    p.add_argument("--calib-file", default="calibration.json")
-    p.add_argument("--log-file", default="reps_log.csv")
-    args = p.parse_args()
-    create_app(args).run(host="0.0.0.0", port=5000)
