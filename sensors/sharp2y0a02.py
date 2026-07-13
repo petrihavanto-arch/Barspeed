@@ -1,5 +1,5 @@
 
-from base import DistanceSensor, Reading
+from .base import DistanceSensor, Reading
 import time, math 
 
 class Sharp2Y0A02Sensor(DistanceSensor):
