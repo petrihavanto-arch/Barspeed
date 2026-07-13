@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head><title>Bar Speed Logger</title>
+<style>
+  body { font-family: sans-serif; margin: 2rem; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid #ccc; padding: .4rem .8rem; text-align: right; }
+  button { margin-top: 1rem; padding: .5rem 1rem; }
+</style></head>
+<body>
+  <h1>Last 5 reps</h1>
+  <table>
+    <thead><tr><th>#</th><th>Time up (s)</th><th>Time down (s)</th><th>Max speed up (m/s)</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <button onclick="clearSet()">Clear set</button>
+<script>
+async function refresh() {
+  const reps = await (await fetch("/api/reps")).json();
+  document.getElementById("rows").innerHTML = reps.map(r =>
+    `<tr><td>${r.index}</td><td>${r.time_up_s.toFixed(2)}</td>` +
+    `<td>${r.time_down_s.toFixed(2)}</td><td>${r.max_speed_up_mps.toFixed(2)}</td></tr>`
+  ).join("");
+}
+async function clearSet() { await fetch("/api/clear", {method:"POST"}); refresh(); }
+refresh(); setInterval(refresh, 1000);
+</script>
+</body></html>
