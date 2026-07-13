@@ -28,7 +28,13 @@ class Session:
 
     def _run(self) -> None:
         while not self._stop.is_set():
-            rep = self._detector.update(self._sensor.read())
+            try:
+                rep = self._detector.update(self._sensor.read())
+            except Exception:
+                import logging
+                logging.exception("sensor read failed, acquisition thread stopping")
+                raise
+
             if rep is not None:
                 self._logger.log_rep(rep)
                 with self._lock:
