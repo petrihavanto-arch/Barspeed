@@ -19,7 +19,7 @@ class Sharp2Y0A02Sensor(DistanceSensor):
         return 26.0  # Sharp 2Y0A02 spec, 38ms±10ms response time
 
     def read(self) -> Reading:
-        v = self._adc.read_adc_voltage(self._channel,0)
+        v = self._adc.read_adc_voltage(self._channel)
         return Reading(t=time.monotonic() - self._t0, distance_m=self._calib(v))
 
     def close(self) -> None:
