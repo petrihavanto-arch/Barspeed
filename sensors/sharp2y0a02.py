@@ -11,6 +11,7 @@ class Sharp2Y0A02Sensor(DistanceSensor):
         self._calib = calib
         self._t0 = None
 
+
     def open(self) -> None:
         self._t0 = time.monotonic()
 
