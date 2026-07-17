@@ -24,7 +24,7 @@ def main():
     tof.open()
 
  #   tof.set_distance_mode(_DISTANCE_MODE_SHORT)               # Set distance mode first
- #   tof.set_timing(_TIMING_BUDGET_US, _INTER_MEASUREMENT_MS) # Set custom budget second
+    tof.set_timing(_TIMING_BUDGET_US, _INTER_MEASUREMENT_MS) # Set custom budget second
     tof.start_ranging(1)                                      # Use 0 to preserve custom timing
 
     print(f"Ranging started (bus={args.i2c_bus}, addr=0x{args.i2c_address:02x}). "
