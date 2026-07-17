@@ -22,10 +22,10 @@ def main():
 
     tof = VL53L1X.VL53L1X(i2c_bus=args.i2c_bus, i2c_address=args.i2c_address)
     tof.open()
-  
-    tof.set_distance_mode(_DISTANCE_MODE_SHORT)               # Set distance mode first
-    tof.set_timing(_TIMING_BUDGET_US, _INTER_MEASUREMENT_MS) # Set custom budget second
-    tof.start_ranging(0)                                      # Use 0 to preserve custom timing
+
+ #   tof.set_distance_mode(_DISTANCE_MODE_SHORT)               # Set distance mode first
+ #   tof.set_timing(_TIMING_BUDGET_US, _INTER_MEASUREMENT_MS) # Set custom budget second
+    tof.start_ranging(1)                                      # Use 0 to preserve custom timing
 
     print(f"Ranging started (bus={args.i2c_bus}, addr=0x{args.i2c_address:02x}). "
           f"Move a target through ~0.2-1.5m. Ctrl-C to stop.")
