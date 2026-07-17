@@ -23,7 +23,7 @@ def main():
     tof = VL53L1X.VL53L1X(i2c_bus=args.i2c_bus, i2c_address=args.i2c_address)
     tof.open()
     tof.set_distance_mode(_DISTANCE_MODE_SHORT)
-    tof.set_timing(_TIMING_BUDGET_US, _INTER_MEASUREMENT_MS)
+ #   tof.set_timing(_TIMING_BUDGET_US, _INTER_MEASUREMENT_MS)
     tof.start_ranging(0)
 
     print(f"Ranging started (bus={args.i2c_bus}, addr=0x{args.i2c_address:02x}). "
