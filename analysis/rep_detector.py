@@ -59,24 +59,34 @@ def _build_segment(points: List[Reading], direction: str, falling: bool) -> Segm
     t_90 = _crossing_time(points, d_90, falling)
     return Segment(direction, t_90 - t_10, _max_speed_in_window(points, t_10, t_90))
 
-
 class RepDetector:
     """Feed readings one at a time via update(). Convention: distance_m
     DECREASES as the bar moves up — set up_is_decreasing=False if your
-    sensor mounting gives the opposite relationship."""
+    sensor mounting gives the opposite relationship.
 
-    def __init__(self, up_is_decreasing: bool = True):
+    debounce_samples: number of consecutive non-extending samples required
+    before a reversal is confirmed as a real turnaround, rather than acting
+    on the first sample that crosses MIN_ROM_M. Guards against single-sample
+    noise spikes being mistaken for a direction change.
+    """
+
+    def __init__(self, up_is_decreasing: bool = True, debounce_samples: int = 2):
         self._up_is_decreasing = up_is_decreasing
+        self._debounce_samples = debounce_samples
         self._seg_points: List[Reading] = []
         self._trend: Optional[str] = None
         self._extremum: Optional[Reading] = None
         self._pending_up: Optional[Segment] = None
         self._rep_index = 0
+        self._reversal_count = 0
 
     def _falling_means(self, trend: str) -> bool:
         return (trend == "up") == self._up_is_decreasing
 
     def update(self, reading: Reading) -> Optional[Rep]:
+        if not reading.valid:
+            return None  # drop invalid/no-target reads (e.g. VL53L1X returning 0)
+
         if not self._seg_points:
             self._seg_points = [reading]
             self._extremum = reading
@@ -90,19 +100,30 @@ class RepDetector:
             falling = delta < 0
             self._trend = "up" if (falling == self._up_is_decreasing) else "down"
             self._extremum = reading
+            self._reversal_count = 0
             return None
 
         falling = self._falling_means(self._trend)
         extending = reading.distance_m < self._extremum.distance_m if falling \
             else reading.distance_m > self._extremum.distance_m
+
         if extending:
+            # Trend continues (or a prior reversal candidate turned out to be
+            # noise) -- extremum advances, debounce counter resets.
             self._extremum = reading
+            self._reversal_count = 0
             return None
 
         reversed_by = abs(reading.distance_m - self._extremum.distance_m)
         if reversed_by < MIN_ROM_M:
-            return None  # not a confirmed turnaround yet
+            return None  # not even reversal-candidate scale yet
 
+        self._reversal_count += 1
+        if self._reversal_count < self._debounce_samples:
+            return None  # reversal candidate seen, but not confirmed yet
+
+        # Confirmed turnaround: debounce_samples consecutive non-extending
+        # readings, each past MIN_ROM_M from the extremum.
         closing = [p for p in self._seg_points if p.t <= self._extremum.t] + [self._extremum]
         segment = _build_segment(closing, self._trend, falling)
         rep = self._consume(segment)
@@ -110,6 +131,7 @@ class RepDetector:
         self._trend = "down" if self._trend == "up" else "up"
         self._seg_points = [self._extremum, reading]
         self._extremum = reading
+        self._reversal_count = 0
         return rep
 
     def _consume(self, segment: Segment) -> Optional[Rep]:
@@ -117,7 +139,7 @@ class RepDetector:
             self._pending_up = segment
             return None
         if self._pending_up is None:
-            return None  # discard a leading partial "down" if the stream starts mid-rep
+            return None
         rep = Rep(self._rep_index, self._pending_up.duration_s, segment.duration_s,
                   self._pending_up.max_speed_mps, time.time())
         self._rep_index += 1

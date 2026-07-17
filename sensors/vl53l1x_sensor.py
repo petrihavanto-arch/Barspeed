@@ -1,14 +1,17 @@
+# sensors/vl53l1x_sensor.py
 import time
 
 from .base import DistanceSensor, Reading
 
-# Distance modes per the pimoroni VL53L1X library: 1=Short, 2=Medium, 3=Long.
-# Short favors speed and immunity to ambient IR over max range - a good fit
-# for tracking a barbell at typically <1.5m, versus Sharp's much slower response.
+# Passed directly to start_ranging(): 1=Short, 2=Medium, 3=Long, 0=unchanged.
+# Must be set via start_ranging() itself, not a separate set_distance_mode()
+# call beforehand -- that ordering left the sensor in its power-on default
+# distance mode (Long), which has a much longer minimum timing budget than
+# the values below, causing get_distance() to block for ~4.4s per reading.
 _DISTANCE_MODE_SHORT = 1
 
-_TIMING_BUDGET_US = 20000       # measurement time budget, microseconds
-_INTER_MEASUREMENT_MS = 50       # must be >= timing budget (in ms); ~28Hz
+_TIMING_BUDGET_US = 20000  # measurement time budget, microseconds
+_INTER_MEASUREMENT_MS = 50  # must be >= timing budget (in ms); ~20Hz
 
 
 class VL53L1XSensor(DistanceSensor):
@@ -25,9 +28,8 @@ class VL53L1XSensor(DistanceSensor):
 
     def open(self) -> None:
         self._tof.open()
-#        self._tof.set_distance_mode(_DISTANCE_MODE_SHORT)
         self._tof.set_timing(_TIMING_BUDGET_US, _INTER_MEASUREMENT_MS)
-        self._tof.start_ranging(1)  # 0 = use mode/timing already configured above
+        self._tof.start_ranging(_DISTANCE_MODE_SHORT)
         self._t0 = time.monotonic()
 
     @property
