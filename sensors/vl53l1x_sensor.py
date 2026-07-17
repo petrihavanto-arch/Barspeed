@@ -7,8 +7,8 @@ from .base import DistanceSensor, Reading
 # for tracking a barbell at typically <1.5m, versus Sharp's much slower response.
 _DISTANCE_MODE_SHORT = 1
 
-_TIMING_BUDGET_US = 33000        # measurement time budget, microseconds
-_INTER_MEASUREMENT_MS = 35       # must be >= timing budget (in ms); ~28Hz
+_TIMING_BUDGET_US = 20000       # measurement time budget, microseconds
+_INTER_MEASUREMENT_MS = 50       # must be >= timing budget (in ms); ~28Hz
 
 
 class VL53L1XSensor(DistanceSensor):
@@ -25,9 +25,9 @@ class VL53L1XSensor(DistanceSensor):
 
     def open(self) -> None:
         self._tof.open()
-        self._tof.set_distance_mode(_DISTANCE_MODE_SHORT)
+#        self._tof.set_distance_mode(_DISTANCE_MODE_SHORT)
         self._tof.set_timing(_TIMING_BUDGET_US, _INTER_MEASUREMENT_MS)
-        self._tof.start_ranging(0)  # 0 = use mode/timing already configured above
+        self._tof.start_ranging(1)  # 0 = use mode/timing already configured above
         self._t0 = time.monotonic()
 
     @property
