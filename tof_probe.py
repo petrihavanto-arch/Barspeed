@@ -17,15 +17,18 @@ def main():
     p = argparse.ArgumentParser(description="VL53L1X hardware verification probe")
     p.add_argument("--i2c-bus", type=int, default=1)
     p.add_argument("--i2c-address", type=lambda x: int(x, 0), default=0x29)
-    p.add_argument("--hz", type=float, default=10.0, help="print rate (sensor is read as fast as it's ready regardless)")
+    p.add_argument("--hz", type=float, default=10.0,
+                   help="print rate (sensor is read as fast as it's ready regardless)")
     args = p.parse_args()
 
     tof = VL53L1X.VL53L1X(i2c_bus=args.i2c_bus, i2c_address=args.i2c_address)
     tof.open()
 
- #   tof.set_distance_mode(_DISTANCE_MODE_SHORT)               # Set distance mode first
-    tof.set_timing(_TIMING_BUDGET_US, _INTER_MEASUREMENT_MS) # Set custom budget second
-    tof.start_ranging(1)                                      # Use 0 to preserve custom timing
+    # Distance mode is set via start_ranging()'s argument, not a separate
+    # set_distance_mode() call -- see the ordering note near the constants
+    # above for why that matters.
+    tof.set_timing(_TIMING_BUDGET_US, _INTER_MEASUREMENT_MS)
+    tof.start_ranging(_DISTANCE_MODE_SHORT)
 
     print(f"Ranging started (bus={args.i2c_bus}, addr=0x{args.i2c_address:02x}). "
           f"Move a target through ~0.2-1.5m. Ctrl-C to stop.")

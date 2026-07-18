@@ -10,8 +10,8 @@ def create_sensor(args) -> DistanceSensor:
             from .vl53l1x_sensor import VL53L1XSensor
             return VL53L1XSensor(i2c_bus=args.i2c_bus, i2c_address=args.i2c_address)
         elif args.sensor == "sharp2y0a02":
-            from .sharp2y0a02 import Sharp2Y0A02Sensor
             from .calibration import load_calibration
+            from .sharp2y0a02 import Sharp2Y0A02Sensor
             return Sharp2Y0A02Sensor(
                 channel=args.adc_channel,
                 calib=load_calibration(args.calib_file),

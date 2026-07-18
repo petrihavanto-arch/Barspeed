@@ -1,6 +1,8 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, jsonify, render_template
+
 from analysis.session import Session
 from sensors import create_sensor
+
 
 def create_app(args) -> Flask:
     app = Flask(__name__)
@@ -26,5 +28,3 @@ def create_app(args) -> Flask:
         return jsonify({"status": "cleared"})
 
     return app
-
-

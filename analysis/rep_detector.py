@@ -1,8 +1,10 @@
 import time
 from dataclasses import dataclass
 from typing import List, Optional
+
 from sensors.base import Reading
-from .constants import REP_START_FRACTION, REP_END_FRACTION, MIN_ROM_M
+
+from .constants import MIN_ROM_M, REP_END_FRACTION, REP_START_FRACTION
 
 
 @dataclass
@@ -59,6 +61,7 @@ def _build_segment(points: List[Reading], direction: str, falling: bool) -> Segm
     t_90 = _crossing_time(points, d_90, falling)
     return Segment(direction, t_90 - t_10, _max_speed_in_window(points, t_10, t_90))
 
+
 class RepDetector:
     """Feed readings one at a time via update(). Convention: distance_m
     DECREASES as the bar moves up — set up_is_decreasing=False if your
@@ -70,7 +73,7 @@ class RepDetector:
     noise spikes being mistaken for a direction change.
     """
 
-    def __init__(self, up_is_decreasing: bool = True, debounce_samples: int = 2):
+    def __init__(self, up_is_decreasing: bool = False, debounce_samples: int = 2):
         self._up_is_decreasing = up_is_decreasing
         self._debounce_samples = debounce_samples
         self._seg_points: List[Reading] = []
