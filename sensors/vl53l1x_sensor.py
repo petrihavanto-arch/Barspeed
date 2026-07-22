@@ -1,17 +1,17 @@
-# sensors/vl53l1x_sensor.py
 import time
 
 from .base import DistanceSensor, Reading
 
-# Passed directly to start_ranging(): 1=Short, 2=Medium, 3=Long, 0=unchanged.
-# Must be set via start_ranging() itself, not a separate set_distance_mode()
-# call beforehand -- that ordering left the sensor in its power-on default
-# distance mode (Long), which has a much longer minimum timing budget than
-# the values below, causing get_distance() to block for ~4.4s per reading.
+# Passed directly to start_ranging(): 1=Short, 2=Medium, 3=Long.
+# IMPORTANT: set the distance mode via start_ranging()'s argument itself,
+# NOT via a separate set_distance_mode() call followed by start_ranging(0).
+# That ordering left the sensor in its power-on default (Long range) mode,
+# which has a much longer minimum timing budget than configured below,
+# causing get_distance() to block ~4.4s per reading instead of ~50ms.
 _DISTANCE_MODE_SHORT = 1
 
-_TIMING_BUDGET_US = 20000  # measurement time budget, microseconds
-_INTER_MEASUREMENT_MS = 50  # must be >= timing budget (in ms); ~20Hz
+_TIMING_BUDGET_US = 20000        # measurement time budget, microseconds
+_INTER_MEASUREMENT_MS = 50       # must be >= timing budget (in ms); ~20Hz
 
 
 class VL53L1XSensor(DistanceSensor):

@@ -1,10 +1,8 @@
 import time
 from dataclasses import dataclass
 from typing import List, Optional
-
 from sensors.base import Reading
-
-from .constants import MIN_ROM_M, REP_END_FRACTION, REP_START_FRACTION
+from .constants import REP_START_FRACTION, REP_END_FRACTION, MIN_ROM_M, MIN_TURNAROUND_INTERVAL_S
 
 
 @dataclass
@@ -64,31 +62,24 @@ def _build_segment(points: List[Reading], direction: str, falling: bool) -> Segm
 
 class RepDetector:
     """Feed readings one at a time via update(). Convention: distance_m
-    DECREASES as the bar moves up — set up_is_decreasing=False if your
-    sensor mounting gives the opposite relationship.
+    DECREASES as the bar moves up - set up_is_decreasing=False if your
+    sensor mounting gives the opposite relationship."""
 
-    debounce_samples: number of consecutive non-extending samples required
-    before a reversal is confirmed as a real turnaround, rather than acting
-    on the first sample that crosses MIN_ROM_M. Guards against single-sample
-    noise spikes being mistaken for a direction change.
-    """
-
-    def __init__(self, up_is_decreasing: bool = False, debounce_samples: int = 2):
+    def __init__(self, up_is_decreasing: bool = True):
         self._up_is_decreasing = up_is_decreasing
-        self._debounce_samples = debounce_samples
         self._seg_points: List[Reading] = []
         self._trend: Optional[str] = None
         self._extremum: Optional[Reading] = None
         self._pending_up: Optional[Segment] = None
         self._rep_index = 0
-        self._reversal_count = 0
+        self._last_turnaround_t: Optional[float] = None
 
     def _falling_means(self, trend: str) -> bool:
         return (trend == "up") == self._up_is_decreasing
 
     def update(self, reading: Reading) -> Optional[Rep]:
         if not reading.valid:
-            return None  # drop invalid/no-target reads (e.g. VL53L1X returning 0)
+            return None  # don't let invalid/no-target readings move the extremum or trigger a turnaround
 
         if not self._seg_points:
             self._seg_points = [reading]
@@ -103,38 +94,31 @@ class RepDetector:
             falling = delta < 0
             self._trend = "up" if (falling == self._up_is_decreasing) else "down"
             self._extremum = reading
-            self._reversal_count = 0
             return None
 
         falling = self._falling_means(self._trend)
         extending = reading.distance_m < self._extremum.distance_m if falling \
             else reading.distance_m > self._extremum.distance_m
-
         if extending:
-            # Trend continues (or a prior reversal candidate turned out to be
-            # noise) -- extremum advances, debounce counter resets.
             self._extremum = reading
-            self._reversal_count = 0
             return None
 
         reversed_by = abs(reading.distance_m - self._extremum.distance_m)
         if reversed_by < MIN_ROM_M:
-            return None  # not even reversal-candidate scale yet
+            return None  # not a confirmed turnaround yet
 
-        self._reversal_count += 1
-        if self._reversal_count < self._debounce_samples:
-            return None  # reversal candidate seen, but not confirmed yet
+        if (self._last_turnaround_t is not None
+                and reading.t - self._last_turnaround_t < MIN_TURNAROUND_INTERVAL_S):
+            return None  # inside refractory window - treat as jitter/settling, not a real turnaround
 
-        # Confirmed turnaround: debounce_samples consecutive non-extending
-        # readings, each past MIN_ROM_M from the extremum.
         closing = [p for p in self._seg_points if p.t <= self._extremum.t] + [self._extremum]
         segment = _build_segment(closing, self._trend, falling)
         rep = self._consume(segment)
 
+        self._last_turnaround_t = self._extremum.t
         self._trend = "down" if self._trend == "up" else "up"
         self._seg_points = [self._extremum, reading]
         self._extremum = reading
-        self._reversal_count = 0
         return rep
 
     def _consume(self, segment: Segment) -> Optional[Rep]:
