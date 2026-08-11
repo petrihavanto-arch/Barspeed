@@ -13,17 +13,17 @@ def create_app(args) -> Flask:
     def index():
         return render_template("index.html")
 
-@app.route("/api/reps")
-def api_reps():
-    return jsonify({
-        "reps": [{
-            "index": r.index,
-            "time_up_s": round(r.time_up_s, 3),
-            "time_down_s": round(r.time_down_s, 3),
-            "max_speed_up_mps": round(r.max_speed_up_mps, 3),
-        } for r in session.latest_reps()],
-        "full": session.is_full(),
-    })
+    @app.route("/api/reps")
+    def api_reps():
+        return jsonify({
+            "reps": [{
+                "index": r.index,
+                "time_up_s": round(r.time_up_s, 3),
+                "time_down_s": round(r.time_down_s, 3),
+                "max_speed_up_mps": round(r.max_speed_up_mps, 3),
+            } for r in session.latest_reps()],
+            "full": session.is_full(),
+        })
 
     @app.route("/api/clear", methods=["POST"])
     def api_clear():
