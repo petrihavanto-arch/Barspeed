@@ -16,7 +16,8 @@
   <button onclick="clearSet()">Clear set</button>
 <script>
 async function refresh() {
-  const reps = await (await fetch("/api/reps")).json();
+  const data = await (await fetch("/api/reps")).json();
+  const reps = Array.isArray(data) ? data : (data.reps || []);
   document.getElementById("rows").innerHTML = reps.map(r =>
     `<tr><td>${r.index}</td><td>${r.time_up_s.toFixed(2)}</td>` +
     `<td>${r.time_down_s.toFixed(2)}</td><td>${r.max_speed_up_mps.toFixed(2)}</td></tr>`
