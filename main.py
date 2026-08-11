@@ -24,6 +24,8 @@ def parse_args():
                     help="defaults to reps_<run-start-timestamp>.json, a fresh file each run")
     p.add_argument("--host", default="0.0.0.0")
     p.add_argument("--port", type=int, default=5000)
+    p.add_argument("-p", "--print", action="store_true",
+                    help="print raw sensor readings to stdout in runtime")
     args = p.parse_args()
 
     if args.log_file is None or args.json_log_file is None:
