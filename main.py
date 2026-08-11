@@ -48,4 +48,5 @@ if __name__ == "__main__":
         import logging
         logging.getLogger('werkzeug').setLevel(logging.ERROR)
     app = create_app(args)
+    print(f" * Bar speed logger: http://{args.host}:{args.port}/")
     app.run(host=args.host, port=args.port)
