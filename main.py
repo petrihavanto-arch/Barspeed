@@ -26,6 +26,8 @@ def parse_args():
     p.add_argument("--port", type=int, default=5000)
     p.add_argument("-p", "--print", action="store_true",
                     help="print raw sensor readings to stdout in runtime")
+    p.add_argument("-r", "--rep", action="store_true",
+                    help="print detected rep details to stdout in runtime")
     args = p.parse_args()
 
     if args.log_file is None or args.json_log_file is None:
