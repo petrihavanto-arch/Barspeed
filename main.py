@@ -28,6 +28,8 @@ def parse_args():
                     help="print raw sensor readings to stdout in runtime")
     p.add_argument("-r", "--rep", action="store_true",
                     help="print detected rep details to stdout in runtime")
+    p.add_argument("-vw", "--verbose-web", action="store_true",
+                    help="enable verbose web server request printing")
     args = p.parse_args()
 
     if args.log_file is None or args.json_log_file is None:
@@ -42,5 +44,8 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+    if not args.verbose_web:
+        import logging
+        logging.getLogger('werkzeug').setLevel(logging.ERROR)
     app = create_app(args)
     app.run(host=args.host, port=args.port)
