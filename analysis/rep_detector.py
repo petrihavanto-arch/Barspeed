@@ -106,18 +106,17 @@ class RepDetector:
             self._non_extending_count = 0
             return None
 
-        reversed_by = abs(reading.distance_m - self._extremum.distance_m)
-        if reversed_by < MIN_ROM_M:
-            self._non_extending_count = 0
-            return None  # not a confirmed turnaround yet
-
         if (self._last_turnaround_t is not None
                 and reading.t - self._last_turnaround_t < MIN_TURNAROUND_INTERVAL_S):
             self._non_extending_count = 0
             return None  # inside refractory window - treat as jitter/settling, not a real turnaround
 
-        self._non_extending_count += 1
-        if self._non_extending_count < self._debounce_samples:
+        reversed_by = abs(reading.distance_m - self._extremum.distance_m)
+        if reversed_by >= MIN_ROM_M or self._non_extending_count > 0:
+            self._non_extending_count += 1
+            if self._non_extending_count < self._debounce_samples:
+                return None
+        else:
             return None
 
         closing = [p for p in self._seg_points if p.t <= self._extremum.t] + [self._extremum]

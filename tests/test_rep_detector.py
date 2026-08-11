@@ -83,3 +83,23 @@ def test_refractory_window_reset():
     assert detector.update(Reading(t=0.25, distance_m=0.80)) is None
     assert detector._trend == "down"  # Trend remains down
     assert detector._non_extending_count == 0
+
+
+def test_debounce_with_temporary_dip():
+    detector = RepDetector(up_is_decreasing=True, debounce_samples=2)
+    
+    # Establish trend: moving up (1.00m -> 0.80m)
+    assert detector.update(Reading(t=0.0, distance_m=1.00)) is None
+    assert detector.update(Reading(t=0.1, distance_m=0.80)) is None
+    
+    # Reversal sample 1: goes to 0.86m (reversed by 0.06m >= MIN_ROM_M).
+    # Debounce counter becomes 1. Not confirmed yet.
+    assert detector.update(Reading(t=0.2, distance_m=0.86)) is None
+    assert detector._non_extending_count == 1
+    
+    # Reversal sample 2: goes to 0.83m (reversed by 0.03m < MIN_ROM_M).
+    # It is still non-extending (0.83m > 0.80m), so it should NOT reset the counter.
+    # It increments the counter to 2 and confirms!
+    assert detector.update(Reading(t=0.3, distance_m=0.83)) is None
+    assert detector._trend == "down"
+    assert detector._non_extending_count == 0
