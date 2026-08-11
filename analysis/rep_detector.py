@@ -65,8 +65,10 @@ class RepDetector:
     DECREASES as the bar moves up - set up_is_decreasing=False if your
     sensor mounting gives the opposite relationship."""
 
-    def __init__(self, up_is_decreasing: bool = True):
+    def __init__(self, up_is_decreasing: bool = True, debounce_samples: int = 2):
         self._up_is_decreasing = up_is_decreasing
+        self._debounce_samples = debounce_samples
+        self._non_extending_count = 0
         self._seg_points: List[Reading] = []
         self._trend: Optional[str] = None
         self._extremum: Optional[Reading] = None
@@ -101,15 +103,22 @@ class RepDetector:
             else reading.distance_m > self._extremum.distance_m
         if extending:
             self._extremum = reading
+            self._non_extending_count = 0
             return None
 
         reversed_by = abs(reading.distance_m - self._extremum.distance_m)
         if reversed_by < MIN_ROM_M:
+            self._non_extending_count = 0
             return None  # not a confirmed turnaround yet
 
         if (self._last_turnaround_t is not None
                 and reading.t - self._last_turnaround_t < MIN_TURNAROUND_INTERVAL_S):
+            self._non_extending_count = 0
             return None  # inside refractory window - treat as jitter/settling, not a real turnaround
+
+        self._non_extending_count += 1
+        if self._non_extending_count < self._debounce_samples:
+            return None
 
         closing = [p for p in self._seg_points if p.t <= self._extremum.t] + [self._extremum]
         segment = _build_segment(closing, self._trend, falling)
@@ -117,8 +126,9 @@ class RepDetector:
 
         self._last_turnaround_t = self._extremum.t
         self._trend = "down" if self._trend == "up" else "up"
-        self._seg_points = [self._extremum, reading]
+        self._seg_points = [p for p in self._seg_points if p.t >= self._extremum.t]
         self._extremum = reading
+        self._non_extending_count = 0
         return rep
 
     def _consume(self, segment: Segment) -> Optional[Rep]:
