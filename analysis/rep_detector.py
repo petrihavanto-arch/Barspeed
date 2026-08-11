@@ -65,7 +65,7 @@ class RepDetector:
     DECREASES as the bar moves up - set up_is_decreasing=False if your
     sensor mounting gives the opposite relationship."""
 
-    def __init__(self, up_is_decreasing: bool = True, debounce_samples: int = 2):
+    def __init__(self, up_is_decreasing: bool = True, debounce_samples: int = 2, on_segment=None):
         self._up_is_decreasing = up_is_decreasing
         self._debounce_samples = debounce_samples
         self._non_extending_count = 0
@@ -75,6 +75,7 @@ class RepDetector:
         self._pending_up: Optional[Segment] = None
         self._rep_index = 0
         self._last_turnaround_t: Optional[float] = None
+        self.on_segment = on_segment
 
     def _falling_means(self, trend: str) -> bool:
         return (trend == "up") == self._up_is_decreasing
@@ -121,6 +122,8 @@ class RepDetector:
 
         closing = [p for p in self._seg_points if p.t <= self._extremum.t] + [self._extremum]
         segment = _build_segment(closing, self._trend, falling)
+        if self.on_segment:
+            self.on_segment(segment)
         rep = self._consume(segment)
 
         self._last_turnaround_t = self._extremum.t
