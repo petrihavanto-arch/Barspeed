@@ -34,10 +34,12 @@ class Session:
         self._sensor.close()
 
     def _run(self) -> None:
+        if self._print_sensor:
+            print("t,distance_m,valid")
         while not self._stop.is_set():
             reading = self._sensor.read()
             if self._print_sensor:
-                print(f"Sensor Reading: t={reading.t:.3f}s, distance={reading.distance_m:.3f}m, valid={reading.valid}")
+                print(f"{reading.t:.3f},{reading.distance_m:.3f},{reading.valid}")
             rep = self._detector.update(reading)
             if rep is not None:
                 self._logger.log_rep(rep)  # every rep is still logged to CSV regardless of display state
