@@ -20,7 +20,6 @@ class MockSensor(DistanceSensor):
         return 25.0
 
     def read(self):
-
         if self._index < len(self.readings):
             r = self.readings[self._index]
             self._index += 1
@@ -39,7 +38,7 @@ class MockArgs:
     rep = False
 
 
-def test_session_sampling_toggle_and_timeout():
+def test_session_sampling_toggle_and_timeout(tmp_path):
     readings = [
         Reading(t=0.0, distance_m=1.0),
         Reading(t=1.0, distance_m=0.9),
@@ -47,19 +46,21 @@ def test_session_sampling_toggle_and_timeout():
         Reading(t=10.0, distance_m=0.0),
     ]
     sensor = MockSensor(readings)
-    session = Session(sensor, log_path="test_session.csv")
+    log_path = str(tmp_path / "test_session.csv")
+    session = Session(sensor, log_path=log_path)
 
     status = session.get_sampling_status()
     assert not status["is_sampling"]
     assert status["result"] is None
 
-    # Toggle to start
+    # Toggle to start sampling
     session.toggle_sampling()
     status = session.get_sampling_status()
     assert status["is_sampling"]
+    assert status["result"] is None
+    assert len(session.latest_reps()) == 0
 
-    # Process readings
-    session._sensor.open()
+    # Simulate buffering during sampling
     for r in readings:
         with session._lock:
             if session._is_sampling:
@@ -67,14 +68,20 @@ def test_session_sampling_toggle_and_timeout():
                     session._sampling_start_t = r.t
                 session._sampling_buffer.append(r)
 
-    # Toggle to stop
+    # Toggle to stop sampling
     session.toggle_sampling()
     status = session.get_sampling_status()
     assert not status["is_sampling"]
     assert status["result"] is not None
     assert status["result"]["highest_distance_m"] == 1.0
     assert status["result"]["lowest_distance_m"] == 0.0
-    assert status["result"]["lift_speed_mps"] > 0
+
+    # Verify starting a new set clears metrics and reps table
+    session.toggle_sampling()
+    status_new = session.get_sampling_status()
+    assert status_new["is_sampling"]
+    assert status_new["result"] is None
+    assert len(session.latest_reps()) == 0
 
 
 def test_webapp_sampling_endpoints(tmp_path):

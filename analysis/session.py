@@ -65,16 +65,24 @@ class Session:
                         if reading.valid:
                             self._sampling_buffer.append(reading)
 
-            rep = self._detector.update(reading)
-            if rep is not None:
-                self._logger.log_rep(rep)
-                with self._lock:
-                    if len(self._display) < DISPLAY_REP_COUNT:
-                        self._display.append(rep)
-
     def _stop_sampling_locked(self) -> None:
         self._is_sampling = False
         self._sampling_result = calculate_sampling_result(self._sampling_buffer)
+
+        def handle_segment(segment):
+            if self._print_rep:
+                name = "Time up" if segment.direction == "up" else "Time down"
+                print(f"{name}: {segment.duration_s:.3f}s (max speed: {segment.max_speed_mps:.3f} m/s)")
+
+        detector = RepDetector(on_segment=handle_segment)
+        self._display = []
+        for r in self._sampling_buffer:
+            rep = detector.update(r)
+            if rep is not None:
+                self._logger.log_rep(rep)
+                if len(self._display) < DISPLAY_REP_COUNT:
+                    self._display.append(rep)
+
 
     def toggle_sampling(self) -> Dict[str, Any]:
         with self._lock:

@@ -112,7 +112,16 @@ async function refresh() {
       document.getElementById("m-travel-d").innerText = `${res.travel_distance_m.toFixed(3)} m`;
       document.getElementById("m-travel-t").innerText = `${res.travel_time_s.toFixed(3)} s`;
       document.getElementById("m-lift-speed").innerText = `${res.lift_speed_mps.toFixed(3)} m/s`;
+    } else {
+      document.getElementById("m-highest").innerText = "-";
+      document.getElementById("m-lowest").innerText = "-";
+      document.getElementById("m-10").innerText = "-";
+      document.getElementById("m-90").innerText = "-";
+      document.getElementById("m-travel-d").innerText = "-";
+      document.getElementById("m-travel-t").innerText = "-";
+      document.getElementById("m-lift-speed").innerText = "-";
     }
+
   } catch (err) {
     console.error("Error refreshing:", err);
   }
