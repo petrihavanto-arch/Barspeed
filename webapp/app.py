@@ -23,11 +23,16 @@ def create_app(args) -> Flask:
                 "max_speed_up_mps": round(r.max_speed_up_mps, 3),
             } for r in session.latest_reps()],
             "full": session.is_full(),
+            "sampling": session.get_sampling_status(),
         })
 
     @app.route("/api/clear", methods=["POST"])
     def api_clear():
-        session.clear()
-        return jsonify({"status": "cleared"})
+        status = session.toggle_sampling()
+        return jsonify({
+            "status": status,
+            "sampling": session.get_sampling_status()
+        })
 
     return app
+

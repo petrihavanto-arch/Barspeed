@@ -1,29 +1,130 @@
 <!DOCTYPE html>
 <html>
-<head><title>Bar Speed Logger</title>
-<style>
-  body { font-family: sans-serif; margin: 2rem; }
-  table { border-collapse: collapse; }
-  th, td { border: 1px solid #ccc; padding: .4rem .8rem; text-align: right; }
-  button { margin-top: 1rem; padding: .5rem 1rem; }
-</style></head>
+<head>
+  <title>Bar Speed Logger</title>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; background-color: #f8f9fa; color: #333; }
+    .card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    h1, h2 { margin-top: 0; }
+    table { border-collapse: collapse; width: 100%; margin-top: 1rem; }
+    th, td { border: 1px solid #ddd; padding: .6rem .8rem; text-align: right; }
+    th { background-color: #f1f3f5; }
+    button { padding: .6rem 1.2rem; font-size: 1rem; border-radius: 4px; border: none; cursor: pointer; font-weight: bold; }
+    .btn-start { background-color: #007bff; color: white; }
+    .btn-stop { background-color: #dc3545; color: white; }
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-top: 1rem; }
+    .metric-box { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 1rem; text-align: center; }
+    .metric-title { font-size: 0.85rem; color: #6c757d; font-weight: bold; text-transform: uppercase; }
+    .metric-value { font-size: 1.4rem; font-weight: bold; margin-top: 0.3rem; color: #212529; }
+    .highlight { color: #28a745; font-size: 1.6rem; }
+    .status-badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.9rem; font-weight: bold; }
+    .status-idle { background: #e9ecef; color: #495057; }
+    .status-sampling { background: #ffe8cc; color: #d9480f; }
+    .status-done { background: #d3f9d8; color: #2b8a3e; }
+  </style>
+</head>
 <body>
-  <h1>Last 5 reps</h1>
-  <table>
-    <thead><tr><th>#</th><th>Time up (s)</th><th>Time down (s)</th><th>Max speed up (m/s)</th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
-  <button onclick="clearSet()">Clear set</button>
+
+  <div class="card">
+    <h1>Sampling & Set Analysis</h1>
+    <div>
+      <button id="sampling-btn" onclick="clearSet()" class="btn-start">Clear set / Start sampling</button>
+      <span id="sampling-status-badge" class="status-badge status-idle">IDLE</span>
+    </div>
+
+    <div class="metrics-grid" id="metrics-panel">
+      <div class="metric-box">
+        <div class="metric-title">Highest Distance</div>
+        <div class="metric-value" id="m-highest">-</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-title">Lowest Distance</div>
+        <div class="metric-value" id="m-lowest">-</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-title">10% Limit</div>
+        <div class="metric-value" id="m-10">-</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-title">90% Limit</div>
+        <div class="metric-value" id="m-90">-</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-title">10-90 Distance</div>
+        <div class="metric-value" id="m-travel-d">-</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-title">10-90 Travel Time</div>
+        <div class="metric-value" id="m-travel-t">-</div>
+      </div>
+      <div class="metric-box">
+        <div class="metric-title">Calculated Lift Speed</div>
+        <div class="metric-value highlight" id="m-lift-speed">-</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Last 5 Reps</h2>
+    <table>
+      <thead><tr><th>#</th><th>Time up (s)</th><th>Time down (s)</th><th>Max speed up (m/s)</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
 <script>
 async function refresh() {
-  const data = await (await fetch("/api/reps")).json();
-  const reps = Array.isArray(data) ? data : (data.reps || []);
-  document.getElementById("rows").innerHTML = reps.map(r =>
-    `<tr><td>${r.index}</td><td>${r.time_up_s.toFixed(2)}</td>` +
-    `<td>${r.time_down_s.toFixed(2)}</td><td>${r.max_speed_up_mps.toFixed(2)}</td></tr>`
-  ).join("");
+  try {
+    const data = await (await fetch("/api/reps")).json();
+    const reps = data.reps || [];
+    document.getElementById("rows").innerHTML = reps.map(r =>
+      `<tr><td>${r.index}</td><td>${r.time_up_s.toFixed(2)}</td>` +
+      `<td>${r.time_down_s.toFixed(2)}</td><td>${r.max_speed_up_mps.toFixed(2)}</td></tr>`
+    ).join("");
+
+    const sampling = data.sampling || {};
+    const btn = document.getElementById("sampling-btn");
+    const badge = document.getElementById("sampling-status-badge");
+
+    if (sampling.is_sampling) {
+      btn.innerText = "Stop sampling";
+      btn.className = "btn-stop";
+      badge.innerText = `SAMPLING... (${sampling.elapsed_s}s)`;
+      badge.className = "status-badge status-sampling";
+    } else {
+      btn.innerText = "Clear set / Start sampling";
+      btn.className = "btn-start";
+      if (sampling.result) {
+        badge.innerText = "COMPLETED";
+        badge.className = "status-badge status-done";
+      } else {
+        badge.innerText = "IDLE";
+        badge.className = "status-badge status-idle";
+      }
+    }
+
+    if (sampling.result) {
+      const res = sampling.result;
+      document.getElementById("m-highest").innerText = `${res.highest_distance_m.toFixed(3)} m`;
+      document.getElementById("m-lowest").innerText = `${res.lowest_distance_m.toFixed(3)} m`;
+      document.getElementById("m-10").innerText = `${res.limit_10_m.toFixed(3)} m`;
+      document.getElementById("m-90").innerText = `${res.limit_90_m.toFixed(3)} m`;
+      document.getElementById("m-travel-d").innerText = `${res.travel_distance_m.toFixed(3)} m`;
+      document.getElementById("m-travel-t").innerText = `${res.travel_time_s.toFixed(3)} s`;
+      document.getElementById("m-lift-speed").innerText = `${res.lift_speed_mps.toFixed(3)} m/s`;
+    }
+  } catch (err) {
+    console.error("Error refreshing:", err);
+  }
 }
-async function clearSet() { await fetch("/api/clear", {method:"POST"}); refresh(); }
-refresh(); setInterval(refresh, 1000);
+
+async function clearSet() {
+  await fetch("/api/clear", {method:"POST"});
+  refresh();
+}
+
+refresh();
+setInterval(refresh, 1000);
 </script>
-</body></html>
+</body>
+</html>
