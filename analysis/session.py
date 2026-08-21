@@ -74,7 +74,10 @@ class Session:
                 name = "Time up" if segment.direction == "up" else "Time down"
                 print(f"{name}: {segment.duration_s:.3f}s (max speed: {segment.max_speed_mps:.3f} m/s)")
 
-        detector = RepDetector(on_segment=handle_segment)
+        set_d_10 = self._sampling_result.limit_10_m if self._sampling_result else None
+        set_d_90 = self._sampling_result.limit_90_m if self._sampling_result else None
+
+        detector = RepDetector(on_segment=handle_segment, set_d_10=set_d_10, set_d_90=set_d_90)
         self._display = []
         for r in self._sampling_buffer:
             rep = detector.update(r)
@@ -82,6 +85,7 @@ class Session:
                 self._logger.log_rep(rep)
                 if len(self._display) < DISPLAY_REP_COUNT:
                     self._display.append(rep)
+
 
 
     def toggle_sampling(self) -> Dict[str, Any]:

@@ -51,18 +51,24 @@ def _max_speed_in_window(points: List[Reading], t_lo: float, t_hi: float) -> flo
     return max_v
 
 
-def _build_segment(points: List[Reading], direction: str, falling: bool) -> Segment:
+def _build_segment(points: List[Reading], direction: str, falling: bool,
+                   set_d_10: Optional[float] = None, set_d_90: Optional[float] = None) -> Segment:
     d_start, d_end = points[0].distance_m, points[-1].distance_m
     rom = abs(d_end - d_start)
-    sign = -1 if falling else 1
-    d_10 = d_start + sign * REP_START_FRACTION * rom
-    d_90 = d_start + sign * REP_END_FRACTION * rom
+    if set_d_10 is not None and set_d_90 is not None:
+        d_10 = set_d_10
+        d_90 = set_d_90
+    else:
+        sign = -1 if falling else 1
+        d_10 = d_start + sign * REP_START_FRACTION * rom
+        d_90 = d_start + sign * REP_END_FRACTION * rom
+
     t_10 = _crossing_time(points, d_10, falling)
     t_90 = _crossing_time(points, d_90, falling)
-    duration_s = t_90 - t_10
+    duration_s = abs(t_90 - t_10)
     dist_10_90 = abs(d_90 - d_10)
     avg_speed_mps = dist_10_90 / duration_s if duration_s > 0 else 0.0
-    return Segment(direction, duration_s, _max_speed_in_window(points, t_10, t_90), avg_speed_mps)
+    return Segment(direction, duration_s, _max_speed_in_window(points, min(t_10, t_90), max(t_10, t_90)), avg_speed_mps)
 
 
 class RepDetector:
@@ -70,7 +76,8 @@ class RepDetector:
     DECREASES as the bar moves up - set up_is_decreasing=False if your
     sensor mounting gives the opposite relationship."""
 
-    def __init__(self, up_is_decreasing: bool = True, debounce_samples: int = 2, on_segment=None):
+    def __init__(self, up_is_decreasing: bool = True, debounce_samples: int = 2, on_segment=None,
+                 set_d_10: Optional[float] = None, set_d_90: Optional[float] = None):
         self._up_is_decreasing = up_is_decreasing
         self._debounce_samples = debounce_samples
         self._non_extending_count = 0
@@ -81,6 +88,8 @@ class RepDetector:
         self._rep_index = 0
         self._last_turnaround_t: Optional[float] = None
         self.on_segment = on_segment
+        self._set_d_10 = set_d_10
+        self._set_d_90 = set_d_90
 
     def _falling_means(self, trend: str) -> bool:
         return (trend == "up") == self._up_is_decreasing
@@ -126,7 +135,7 @@ class RepDetector:
             return None
 
         closing = [p for p in self._seg_points if p.t <= self._extremum.t] + [self._extremum]
-        segment = _build_segment(closing, self._trend, falling)
+        segment = _build_segment(closing, self._trend, falling, self._set_d_10, self._set_d_90)
         if self.on_segment:
             self.on_segment(segment)
         rep = self._consume(segment)
@@ -137,6 +146,7 @@ class RepDetector:
         self._extremum = reading
         self._non_extending_count = 0
         return rep
+
 
     def _consume(self, segment: Segment) -> Optional[Rep]:
         if segment.direction == "up":
