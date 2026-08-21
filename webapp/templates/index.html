@@ -67,7 +67,7 @@
   <div class="card">
     <h2>Last 5 Reps</h2>
     <table>
-      <thead><tr><th>#</th><th>Time up (s)</th><th>Time down (s)</th><th>Max speed up (m/s)</th></tr></thead>
+      <thead><tr><th>#</th><th>Time up (s)</th><th>Time down (s)</th><th>Avg speed up (m/s)</th><th>Max speed up (m/s)</th></tr></thead>
       <tbody id="rows"></tbody>
     </table>
   </div>
@@ -79,8 +79,11 @@ async function refresh() {
     const reps = data.reps || [];
     document.getElementById("rows").innerHTML = reps.map(r =>
       `<tr><td>${r.index}</td><td>${r.time_up_s.toFixed(2)}</td>` +
-      `<td>${r.time_down_s.toFixed(2)}</td><td>${r.max_speed_up_mps.toFixed(2)}</td></tr>`
+      `<td>${r.time_down_s.toFixed(2)}</td>` +
+      `<td>${(r.avg_speed_up_mps !== undefined && r.avg_speed_up_mps !== null) ? r.avg_speed_up_mps.toFixed(2) : '-'}</td>` +
+      `<td>${r.max_speed_up_mps.toFixed(2)}</td></tr>`
     ).join("");
+
 
     const sampling = data.sampling || {};
     const btn = document.getElementById("sampling-btn");

@@ -103,3 +103,27 @@ def test_debounce_with_temporary_dip():
     assert detector.update(Reading(t=0.3, distance_m=0.83)) is None
     assert detector._trend == "down"
     assert detector._non_extending_count == 0
+
+
+def test_rep_avg_speed_up():
+    detector = RepDetector(up_is_decreasing=True, debounce_samples=1)
+    # Up segment: distance 1.0 -> 0.0 over t=0 to t=10
+    # ROM = 1.0m, 10% = 0.9m (t=1), 90% = 0.1m (t=9)
+    # duration_s = 8.0s, dist_10_90 = 0.8m -> avg_speed_up_mps = 0.1 m/s
+    detector.update(Reading(t=0.0, distance_m=1.00))
+    detector.update(Reading(t=1.0, distance_m=0.90))
+    detector.update(Reading(t=5.0, distance_m=0.50))
+    detector.update(Reading(t=9.0, distance_m=0.10))
+    detector.update(Reading(t=10.0, distance_m=0.00))
+    # Turnaround at top (d=0.0) -> start down segment (d increases to 0.10)
+    detector.update(Reading(t=10.1, distance_m=0.10))
+    # Down segment completes turnaround at bottom
+    rep = detector.update(Reading(t=20.0, distance_m=1.00))
+
+    if rep is None:
+        rep = detector.update(Reading(t=20.1, distance_m=0.90))
+
+    assert rep is not None
+    assert pytest.approx(rep.time_up_s) == 8.0
+    assert pytest.approx(rep.avg_speed_up_mps) == 0.1
+

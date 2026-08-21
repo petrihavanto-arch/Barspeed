@@ -20,11 +20,13 @@ def create_app(args) -> Flask:
                 "index": r.index,
                 "time_up_s": round(r.time_up_s, 3),
                 "time_down_s": round(r.time_down_s, 3),
+                "avg_speed_up_mps": round(r.avg_speed_up_mps, 3),
                 "max_speed_up_mps": round(r.max_speed_up_mps, 3),
             } for r in session.latest_reps()],
             "full": session.is_full(),
             "sampling": session.get_sampling_status(),
         })
+
 
     @app.route("/api/clear", methods=["POST"])
     def api_clear():

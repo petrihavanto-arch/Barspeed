@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from .rep_detector import Rep
 
 FIELDS = ["set_start_time", "rep_index_in_set", "logged_at",
-          "time_up_s", "time_down_s", "max_speed_up_mps"]
+          "time_up_s", "time_down_s", "avg_speed_up_mps", "max_speed_up_mps"]
 
 
 class RepLogger:
@@ -48,6 +48,8 @@ class RepLogger:
                 "logged_at": self._now(),
                 "time_up_s": f"{rep.time_up_s:.3f}",
                 "time_down_s": f"{rep.time_down_s:.3f}",
+                "avg_speed_up_mps": f"{rep.avg_speed_up_mps:.3f}",
                 "max_speed_up_mps": f"{rep.max_speed_up_mps:.3f}",
             })
         self._rep_index_in_set += 1
+
