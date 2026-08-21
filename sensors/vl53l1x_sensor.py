@@ -16,8 +16,7 @@ _INTER_MEASUREMENT_MS = 50       # must be >= timing budget (in ms); ~20Hz
 
 class VL53L1XSensor(DistanceSensor):
     """ToF laser distance sensor via I2C (pimoroni VL53L1X python package).
-    Distance comes back directly in mm from the sensor itself - no
-    voltage->distance calibration curve needed, unlike the Sharp 2Y0A02."""
+    Distance comes back directly in mm from the sensor itself."""
 
     def __init__(self, i2c_bus: int = 1, i2c_address: int = 0x29):
         # lazy import - keeps this module (and sensors/__init__.py, via
