@@ -6,7 +6,13 @@ from sensors import create_sensor
 
 def create_app(args) -> Flask:
     app = Flask(__name__)
-    session = Session(create_sensor(args), log_path=args.log_file, print_sensor=args.print, print_rep=args.rep)
+    session = Session(
+        create_sensor(args),
+        log_path=args.log_file,
+        print_sensor=args.print,
+        print_rep=args.rep,
+        dump_path=args.dump,
+    )
     session.start()
 
     @app.route("/")
@@ -37,4 +43,3 @@ def create_app(args) -> Flask:
         })
 
     return app
-
