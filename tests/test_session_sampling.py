@@ -36,6 +36,7 @@ class MockArgs:
     json_log_file = "test_log.json"
     print = False
     rep = False
+    dump = None
 
 
 def test_session_sampling_toggle_and_timeout(tmp_path):
@@ -86,11 +87,19 @@ def test_session_sampling_toggle_and_timeout(tmp_path):
 
 def test_webapp_sampling_endpoints(tmp_path):
     log_path = str(tmp_path / "test_reps.csv")
+    dump_path = str(tmp_path / "sensor_dump.csv")
     args = MockArgs()
     args.log_file = log_path
+    args.dump = dump_path
 
     app = create_app(args)
     client = app.test_client()
+
+    time.sleep(0.1)
+    with open(dump_path, newline="") as dump_file:
+        dump_lines = dump_file.readlines()
+    assert dump_lines[0].strip() == "t,distance_m,valid"
+    assert len(dump_lines) > 1
 
     res = client.get("/api/reps")
     assert res.status_code == 200

@@ -1,4 +1,5 @@
 import argparse
+import os
 from datetime import datetime, timezone
 
 from webapp.app import create_app
@@ -17,6 +18,8 @@ def parse_args():
                     help="defaults to reps_<run-start-timestamp>.csv, a fresh file each run")
     p.add_argument("--json-log-file", default=None,
                     help="defaults to reps_<run-start-timestamp>.json, a fresh file each run")
+    p.add_argument("-d", "--dump", default=None,
+                    help="dump all sensor readings to a CSV file at <filename>")
     p.add_argument("--host", default="0.0.0.0")
     p.add_argument("--port", type=int, default=5000)
     p.add_argument("-p", "--print", action="store_true",
@@ -33,6 +36,11 @@ def parse_args():
             args.log_file = f"reps_{run_start}.csv"
         if args.json_log_file is None:
             args.json_log_file = f"reps_{run_start}.json"
+
+    if args.dump is not None:
+        dump_dir = os.path.dirname(os.path.abspath(args.dump))
+        if dump_dir:
+            os.makedirs(dump_dir, exist_ok=True)
 
     return args
 

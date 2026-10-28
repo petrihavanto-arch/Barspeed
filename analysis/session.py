@@ -1,3 +1,5 @@
+import csv
+import os
 import threading
 import time
 from typing import List, Optional, Dict, Any
@@ -11,14 +13,26 @@ SAMPLING_TIMEOUT_S = 300.0  # 5 minutes
 
 
 class Session:
-    def __init__(self, sensor: DistanceSensor, log_path: str, print_sensor: bool = False, print_rep: bool = False):
+    def __init__(self, sensor: DistanceSensor, log_path: str, print_sensor: bool = False,
+                 print_rep: bool = False, dump_path: Optional[str] = None):
         self._sensor = sensor
-        
+        self._dump_path = dump_path
+        self._dump_file = None
+        self._dump_writer = None
+
+        if self._dump_path is not None:
+            dump_dir = os.path.dirname(os.path.abspath(self._dump_path))
+            if dump_dir:
+                os.makedirs(dump_dir, exist_ok=True)
+            self._dump_file = open(self._dump_path, "w", newline="")
+            self._dump_writer = csv.writer(self._dump_file)
+            self._dump_writer.writerow(["t", "distance_m", "valid"])
+
         def handle_segment(segment):
             if self._print_rep:
                 name = "Time up" if segment.direction == "up" else "Time down"
                 print(f"{name}: {segment.duration_s:.3f}s (max speed: {segment.max_speed_mps:.3f} m/s)")
-                
+
         self._detector = RepDetector(on_segment=handle_segment)
         self._logger = RepLogger(log_path)
         self._print_sensor = print_sensor
@@ -43,6 +57,10 @@ class Session:
         self._stop.set()
         self._thread.join(timeout=2)
         self._sensor.close()
+        if self._dump_file is not None:
+            self._dump_file.close()
+            self._dump_file = None
+            self._dump_writer = None
 
     def _run(self) -> None:
         if self._print_sensor:
@@ -51,6 +69,14 @@ class Session:
             reading = self._sensor.read()
             if self._print_sensor:
                 print(f"{reading.t:.3f},{reading.distance_m:.3f},{reading.valid}")
+
+            if self._dump_writer is not None:
+                self._dump_writer.writerow([
+                    f"{reading.t:.3f}",
+                    f"{reading.distance_m:.3f}",
+                    str(bool(reading.valid)),
+                ])
+                self._dump_file.flush()
 
             with self._lock:
                 if self._is_sampling:
@@ -85,8 +111,6 @@ class Session:
                 self._logger.log_rep(rep)
                 if len(self._display) < DISPLAY_REP_COUNT:
                     self._display.append(rep)
-
-
 
     def toggle_sampling(self) -> Dict[str, Any]:
         with self._lock:
