@@ -11,7 +11,7 @@ from .base import DistanceSensor, Reading
 _DISTANCE_MODE_SHORT = 1
 
 _TIMING_BUDGET_US = 20000        # measurement time budget, microseconds
-_INTER_MEASUREMENT_MS = 50       # must be >= timing budget (in ms); ~20Hz
+_INTER_MEASUREMENT_MS = 100       # must be >= timing budget (in ms); ~20Hz
 
 
 class VL53L1XSensor(DistanceSensor):
