@@ -76,7 +76,7 @@ class RepDetector:
     DECREASES as the bar moves up - set up_is_decreasing=False if your
     sensor mounting gives the opposite relationship."""
 
-    def __init__(self, up_is_decreasing: bool = True, debounce_samples: int = 2, on_segment=None,
+    def __init__(self, up_is_decreasing: bool = False, debounce_samples: int = 2, on_segment=None,
                  set_d_10: Optional[float] = None, set_d_90: Optional[float] = None):
         self._up_is_decreasing = up_is_decreasing
         self._debounce_samples = debounce_samples
