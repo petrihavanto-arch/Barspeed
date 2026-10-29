@@ -62,7 +62,7 @@ def main():
                     f"down {rep.time_down_s:.3f}s, "
                     f"average up speed {rep.avg_speed_up_mps:.3f} m/s, "
                     f"max up speed {rep.max_speed_up_mps:.3f} m/s",
-                    file=sys.stderr,
+                    file=sys.stdout,
                     flush=True,
                 )
     except KeyboardInterrupt:
