@@ -32,7 +32,9 @@ def main():
 
     def report_segment(segment):
         print(
-            f"Segment {segment.direction}: {segment.duration_s:.3f}s "
+            f"Segment {segment.direction} "
+            f"(started at t={segment.start_t:.3f}s, ended at t={segment.end_t:.3f}s): "
+            f"{segment.duration_s:.3f}s "
             f"(average speed: {segment.avg_speed_mps:.3f} m/s, "
             f"max speed: {segment.max_speed_mps:.3f} m/s)",
             file=sys.stdout,
