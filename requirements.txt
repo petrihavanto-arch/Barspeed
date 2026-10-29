@@ -1,5 +1,4 @@
 argparse
 datetime 
 logging
-csv
 matplotlib.pyplot 

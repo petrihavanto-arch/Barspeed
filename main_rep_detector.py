@@ -35,7 +35,7 @@ def main():
             f"Segment {segment.direction}: {segment.duration_s:.3f}s "
             f"(average speed: {segment.avg_speed_mps:.3f} m/s, "
             f"max speed: {segment.max_speed_mps:.3f} m/s)",
-            file=sys.stderr,
+            file=sys.stdout,
             flush=True,
         )
 
