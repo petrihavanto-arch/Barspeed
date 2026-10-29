@@ -23,6 +23,19 @@ def test_no_debounce():
     assert detector._trend == "down"
 
 
+def test_segment_includes_start_and_end_times():
+    segments = []
+    detector = RepDetector(up_is_decreasing=True, debounce_samples=1, on_segment=segments.append)
+
+    detector.update(Reading(t=2.0, distance_m=1.00))
+    detector.update(Reading(t=2.1, distance_m=0.90))
+    detector.update(Reading(t=2.2, distance_m=0.96))
+
+    assert len(segments) == 1
+    assert segments[0].start_t == 2.0
+    assert segments[0].end_t == 2.1
+
+
 def test_default_debounce_rejection_and_confirmation():
     # debounce_samples = 2 (default)
     detector = RepDetector(up_is_decreasing=True, debounce_samples=2)
@@ -126,4 +139,3 @@ def test_rep_avg_speed_up():
     assert rep is not None
     assert pytest.approx(rep.time_up_s) == 8.0
     assert pytest.approx(rep.avg_speed_up_mps) == 0.1
-

@@ -11,6 +11,8 @@ class Segment:
     duration_s: float     # time between the 10% and 90% crossings
     max_speed_mps: float  # peak speed within that 10%-90% window
     avg_speed_mps: float = 0.0  # average speed within that 10%-90% window
+    start_t: float = 0.0
+    end_t: float = 0.0
 
 
 @dataclass
@@ -68,7 +70,14 @@ def _build_segment(points: List[Reading], direction: str, falling: bool,
     duration_s = abs(t_90 - t_10)
     dist_10_90 = abs(d_90 - d_10)
     avg_speed_mps = dist_10_90 / duration_s if duration_s > 0 else 0.0
-    return Segment(direction, duration_s, _max_speed_in_window(points, min(t_10, t_90), max(t_10, t_90)), avg_speed_mps)
+    return Segment(
+        direction,
+        duration_s,
+        _max_speed_in_window(points, min(t_10, t_90), max(t_10, t_90)),
+        avg_speed_mps,
+        points[0].t,
+        points[-1].t,
+    )
 
 
 class RepDetector:
@@ -159,4 +168,3 @@ class RepDetector:
         self._rep_index += 1
         self._pending_up = None
         return rep
-
