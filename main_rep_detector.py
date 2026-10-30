@@ -53,7 +53,7 @@ def main():
             reading_old=reading
             reading = sensor.read()
             locations.writerow(
-                [f"{reading.t:.3f}", f"{reading.distance_m:.3f}", f"{reading_old.distance_m-reading.distance_m}", str(reading.valid)]
+                [f"{reading.t:.3f}", f"{reading.distance_m:.3f}", f"{reading_old.distance_m-reading.distance_m:.3f}", str(reading.valid)]
             )
             sys.stdout.flush()
 
