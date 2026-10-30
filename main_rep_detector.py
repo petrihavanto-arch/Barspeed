@@ -43,15 +43,17 @@ def main():
 
     detector = RepDetector(on_segment=report_segment)
     locations = csv.writer(sys.stdout, lineterminator="\n")
-    locations.writerow(["t", "distance_m", "valid"])
+    locations.writerow(["t", "distance_m", "diff", "valid"])
     sys.stdout.flush()
 
     sensor.open()
+    reading = sensor.read()
     try:
         while True:
+            reading_old=reading
             reading = sensor.read()
             locations.writerow(
-                [f"{reading.t:.3f}", f"{reading.distance_m:.3f}", str(reading.valid)]
+                [f"{reading.t:.3f}", f"{reading.distance_m:.3f}", f"{reading_old.distance_m-reading.distance_m}", str(reading.valid)]
             )
             sys.stdout.flush()
 
