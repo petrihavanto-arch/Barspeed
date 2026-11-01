@@ -102,6 +102,7 @@ class RepDetector:
         self._trend: Optional[str] = None
         self._extremum: Optional[Reading] = None
         self._pending_up: Optional[Segment] = None
+        self._pending_down: Optional[Segment] = None
         self._rep_index = 0
         self._last_turnaround_t: Optional[float] = None
         self.on_segment = on_segment
@@ -168,14 +169,26 @@ class RepDetector:
     def _consume(self, segment: Segment) -> Optional[Rep]:
         if segment.direction == "up":
             self._pending_up = segment
+        else:
+            self._pending_down = segment
+
+        if self._pending_up is None or self._pending_down is None:
             return None
-        if self._pending_up is None:
-            return None
-        if min(self._pending_up.rom_m, segment.rom_m) + 1e-9 < MIN_REP_ROM_M:
+
+        if min(self._pending_up.rom_m, self._pending_down.rom_m) + 1e-9 < MIN_REP_ROM_M:
             self._pending_up = None
+            self._pending_down = None
             return None
-        rep = Rep(self._rep_index, self._pending_up.duration_s, segment.duration_s,
-                  self._pending_up.max_speed_mps, self._pending_up.avg_speed_mps, time.time())
+
+        rep = Rep(
+            self._rep_index,
+            self._pending_up.duration_s,
+            self._pending_down.duration_s,
+            self._pending_up.max_speed_mps,
+            self._pending_up.avg_speed_mps,
+            time.time(),
+        )
         self._rep_index += 1
         self._pending_up = None
+        self._pending_down = None
         return rep

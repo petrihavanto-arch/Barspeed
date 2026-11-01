@@ -60,6 +60,23 @@ def test_rep_requires_at_least_100mm_excursion(top_distance, expected_rep):
     assert bool(reps) is expected_rep
 
 
+def test_counts_first_rep_when_motion_begins_down():
+    detector = RepDetector(up_is_decreasing=True, debounce_samples=1)
+    reps = []
+    distances = [
+        0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0,
+        0.9, 0.8, 0.7, 0.6, 0.5, 0.4, 0.3, 0.2, 0.1, 0.0, 0.1,
+    ]
+
+    for index, distance in enumerate(distances):
+        rep = detector.update(Reading(t=index * 0.3, distance_m=distance))
+        if rep is not None:
+            reps.append(rep)
+
+    assert len(reps) == 1
+    assert reps[0].index == 0
+
+
 def test_default_debounce_rejection_and_confirmation():
     # debounce_samples = 2 (default)
     detector = RepDetector(up_is_decreasing=True, debounce_samples=2)
