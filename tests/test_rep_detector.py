@@ -77,6 +77,23 @@ def test_counts_first_rep_when_motion_begins_down():
     assert reps[0].index == 0
 
 
+def test_counts_first_full_rep_after_startup_partial_segment():
+    detector = RepDetector(up_is_decreasing=True, debounce_samples=1)
+    reps = []
+    distances = [
+        0.95, 1.00, 0.94, 0.40, 0.34, 0.40, 0.95, 1.00, 0.94,
+        0.88,
+    ]
+
+    for index, distance in enumerate(distances):
+        rep = detector.update(Reading(t=index * 0.3, distance_m=distance))
+        if rep is not None:
+            reps.append(rep)
+
+    assert len(reps) == 1
+    assert reps[0].index == 0
+
+
 def test_default_debounce_rejection_and_confirmation():
     # debounce_samples = 2 (default)
     detector = RepDetector(up_is_decreasing=True, debounce_samples=2)

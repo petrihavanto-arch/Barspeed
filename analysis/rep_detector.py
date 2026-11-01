@@ -175,9 +175,11 @@ class RepDetector:
         if self._pending_up is None or self._pending_down is None:
             return None
 
-        if min(self._pending_up.rom_m, self._pending_down.rom_m) + 1e-9 < MIN_REP_ROM_M:
-            self._pending_up = None
-            self._pending_down = None
+        up_is_long_enough = self._pending_up.rom_m + 1e-9 >= MIN_REP_ROM_M
+        down_is_long_enough = self._pending_down.rom_m + 1e-9 >= MIN_REP_ROM_M
+        if not (up_is_long_enough and down_is_long_enough):
+            self._pending_up = self._pending_up if up_is_long_enough else None
+            self._pending_down = self._pending_down if down_is_long_enough else None
             return None
 
         rep = Rep(
