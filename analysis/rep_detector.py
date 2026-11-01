@@ -2,7 +2,13 @@ import time
 from dataclasses import dataclass
 from typing import List, Optional
 from sensors.base import Reading
-from .constants import REP_START_FRACTION, REP_END_FRACTION, MIN_ROM_M, MIN_TURNAROUND_INTERVAL_S
+from .constants import (
+    REP_START_FRACTION,
+    REP_END_FRACTION,
+    MIN_ROM_M,
+    MIN_REP_ROM_M,
+    MIN_TURNAROUND_INTERVAL_S,
+)
 
 
 @dataclass
@@ -13,6 +19,7 @@ class Segment:
     avg_speed_mps: float = 0.0  # average speed within that 10%-90% window
     start_t: float = 0.0
     end_t: float = 0.0
+    rom_m: float = 0.0
 
 
 @dataclass
@@ -77,6 +84,7 @@ def _build_segment(points: List[Reading], direction: str, falling: bool,
         avg_speed_mps,
         points[0].t,
         points[-1].t,
+        rom,
     )
 
 
@@ -162,6 +170,9 @@ class RepDetector:
             self._pending_up = segment
             return None
         if self._pending_up is None:
+            return None
+        if min(self._pending_up.rom_m, segment.rom_m) + 1e-9 < MIN_REP_ROM_M:
+            self._pending_up = None
             return None
         rep = Rep(self._rep_index, self._pending_up.duration_s, segment.duration_s,
                   self._pending_up.max_speed_mps, self._pending_up.avg_speed_mps, time.time())

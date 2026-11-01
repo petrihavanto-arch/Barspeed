@@ -36,6 +36,30 @@ def test_segment_includes_start_and_end_times():
     assert segments[0].end_t == 2.1
 
 
+@pytest.mark.parametrize(
+    ("top_distance", "expected_rep"),
+    [(0.901, False), (0.9, True)],
+)
+def test_rep_requires_at_least_100mm_excursion(top_distance, expected_rep):
+    detector = RepDetector(up_is_decreasing=True, debounce_samples=1)
+    reps = []
+    readings = [
+        Reading(t=0.0, distance_m=1.0),
+        Reading(t=0.1, distance_m=0.95),
+        Reading(t=0.2, distance_m=top_distance),
+        Reading(t=0.3, distance_m=top_distance + 0.06),
+        Reading(t=0.4, distance_m=1.0),
+        Reading(t=0.5, distance_m=0.94),
+    ]
+
+    for reading in readings:
+        rep = detector.update(reading)
+        if rep is not None:
+            reps.append(rep)
+
+    assert bool(reps) is expected_rep
+
+
 def test_default_debounce_rejection_and_confirmation():
     # debounce_samples = 2 (default)
     detector = RepDetector(up_is_decreasing=True, debounce_samples=2)
