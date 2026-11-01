@@ -30,15 +30,18 @@ flowchart TD
 
     subgraph Session["analysis/session.py — Session"]
         direction TB
-        Thread["background thread:\nloop sensor.read() → detector.update()"]
+        Thread["background thread:\nread, print/dump, buffer valid readings while sampling"]
+        Replay["on sampling stop:\ncalculate set metrics, replay buffer to detector"]
+        Thread --> Replay
     end
 
-    Session -->|"Reading stream"| Detector
+    Session -->|"buffered Reading sequence"| Detector
 
     subgraph Detector["analysis/rep_detector.py — RepDetector"]
         direction TB
         Track["track extremum + trend\n(debounced turnaround detection)"]
         Track --> Build["_build_segment():\n10%/90%-of-ROM crossing times\n+ peak speed in that window"]
+        Build --> Filter["pair up/down segments\nin either starting order;\nrequire >=100mm ROM in both"]
     end
 
     Detector -->|"Rep(index, time_up_s,\ntime_down_s, max_speed_up_mps)"| Fanout
@@ -49,6 +52,7 @@ flowchart TD
 
     Display --> API["webapp/app.py\nFlask routes:\n/  /api/reps  /api/clear"]
     Sampler --> API
+    Sampler -->|"10%/90% limits"| Detector
     API --> UI["webapp/templates/index.html\npolls /api/reps every 1s\nSampling & Metrics Panel"]
 
     style HW fill:#eef,stroke:#88a
@@ -71,6 +75,7 @@ flowchart TD
 ```
 Barspeed/
     main.py                    # entry point: argparse → create_sensor/create_app → app.run
+    main_rep_detector.py       # standalone sensor stream → RepDetector; CSV readings on stdout
     tof_probe.py                # standalone VL53L1X hardware verification (no Flask/analysis)
     adcprobe.py                 # standalone Sharp/MCP3202 hardware verification (no Flask/analysis)
 
@@ -85,11 +90,11 @@ Barspeed/
 
     analysis/
         __init__.py
-        constants.py              # REP_START_FRACTION, REP_END_FRACTION, MIN_ROM_M, DISPLAY_REP_COUNT
-        rep_detector.py           # Segment, Rep, RepDetector — turnaround + segment logic
+        constants.py              # segment fractions, 50mm turnaround and 100mm rep ROM thresholds
+        rep_detector.py           # Segment, Rep, RepDetector — turnaround, filtering, and rep pairing
         rep_logger.py             # RepLogger — CSV output, per-set indexing
         sampler.py                # SamplingResult, calculate_sampling_result — 10-90% range & lift speed calculation
-        session.py                # Session — owns sensor+detector+logger+sampler, background thread, 5-min timeout, display buffer
+        session.py                # Session — sensor thread, raw dump, sampling buffer, detector replay, logger
 
     webapp/
         __init__.py
@@ -102,17 +107,43 @@ Barspeed/
     calibration.json             # Sharp calibration data (currently unused — see calibration.py)
 ```
 
+## Detection and logging behavior
+
+The web app's acquisition thread continuously reads the sensor. `-p` prints
+raw readings and `-d/--dump` writes them to CSV whether or not a set is being
+sampled; neither option runs rep detection. The UI's sampling button toggles
+collection of valid readings. When sampling stops (or reaches the five-minute
+timeout), `Session` calculates set metrics and replays the buffered readings
+through a fresh `RepDetector`; completed reps are then logged and displayed.
+Consequently, a raw `-p` output or dump is not itself a record of which
+readings were included in a sampled set.
+
+The detector ignores invalid readings, confirms turnarounds using a 50 mm
+minimum reversal and a two-sample debounce, and requires at least 100 mm of
+range in both the up and down segments to count a rep. It can pair the first
+complete cycle regardless of whether sampling begins during the up or down
+phase. If sampling begins mid-stroke, a short partial segment is rejected
+without discarding a qualifying full-range segment that can pair with the
+next opposite-direction segment.
+
+`main_rep_detector.py` is an alternative, standalone sensor runner. It feeds
+readings directly to `RepDetector`, writes raw location CSV rows to stdout,
+and writes segment and rep summaries to stderr. Unlike the web app, it does
+not wait for the UI sampling button.
+
 ## CLI (`main.py`)
 
 ```
-python3 main.py --platform {rpi,pc} --sensor {vl53l1x,sharp2y0a02}
-                 --i2c-bus 1 --i2c-address 0x29
-                 --adc-channel 0 --calib-file calibration.json
-                 --log-file reps_log.csv --host 0.0.0.0 --port 5000
+python3 main.py --platform {rpi,pc} --i2c-bus 1 --i2c-address 0x29
+                 --log-file reps.csv --json-log-file reps.json
+                 --dump readings.csv --host 0.0.0.0 --port 5000
+                 --print --rep --verbose-web
 ```
 
 - `--platform pc` → `DummySensor` (sine-wave stand-in, zero hardware deps).
-- `--platform rpi` (default) → real sensor per `--sensor` (default `vl53l1x`).
+- `--platform rpi` (default) → VL53L1X sensor.
+- `--print` prints raw sensor readings; `--dump` writes all readings to CSV.
+- `--rep` prints segment details when a sampled buffer is processed.
 - Must run as `python3 main.py` from the project root — `sensors`/`analysis`/`webapp`
   are sibling packages and need the project root on `sys.path`.
 
@@ -125,13 +156,14 @@ until the button is pressed again or 5 minutes (300 seconds) pass. Once sampling
 `calculate_sampling_result()` computes highest/lowest distances, 10% & 90% limits, 10-90 travel time,
 and lift speed.
 
-Completed `Rep`s are appended to the CSV log and pushed into a `deque(maxlen=5)`
-guarded by a `threading.Lock`. Flask's request threads read `_display` and `_sampling_result`
-through `latest_reps()` and `get_sampling_status()` under that same lock — keeping the hot
-acquisition loop completely decoupled from HTTP request handling.
+The sensor acquisition thread is separate from Flask's request threads, but
+rep processing is batch-based: stopping sampling runs set analysis and detector
+replay in the request handling path while holding the session lock. Completed
+`Rep`s are appended to the CSV log and added to the display buffer. Flask reads
+`_display` and `_sampling_result` through `latest_reps()` and
+`get_sampling_status()` under that same lock.
 
 ## See also
 
 - [MODULES.md](MODULES.md) — per-file reference: public interfaces, invariants, sharp edges.
 - [KNOWN_ISSUES.md](KNOWN_ISSUES.md) — open TODOs, resolved gotchas, and decisions worth remembering.
-
