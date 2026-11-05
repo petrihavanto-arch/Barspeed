@@ -64,10 +64,18 @@ def _build_segment(points: List[Reading], direction: str, falling: bool,
                    set_d_10: Optional[float] = None, set_d_90: Optional[float] = None) -> Segment:
     d_start, d_end = points[0].distance_m, points[-1].distance_m
     rom = abs(d_end - d_start)
+    min_d, max_d = min(d_start, d_end), max(d_start, d_end)
+
+    use_set_limits = False
     if set_d_10 is not None and set_d_90 is not None:
-        d_10 = set_d_10
-        d_90 = set_d_90
-    else:
+        target_10 = set_d_10 if direction == "up" else set_d_90
+        target_90 = set_d_90 if direction == "up" else set_d_10
+        if min_d <= target_10 <= max_d and min_d <= target_90 <= max_d:
+            d_10 = target_10
+            d_90 = target_90
+            use_set_limits = True
+
+    if not use_set_limits:
         sign = -1 if falling else 1
         d_10 = d_start + sign * REP_START_FRACTION * rom
         d_90 = d_start + sign * REP_END_FRACTION * rom
@@ -94,9 +102,11 @@ class RepDetector:
     sensor mounting gives the opposite relationship."""
 
     def __init__(self, up_is_decreasing: bool = False, debounce_samples: int = 2, on_segment=None,
-                 set_d_10: Optional[float] = None, set_d_90: Optional[float] = None):
+                 set_d_10: Optional[float] = None, set_d_90: Optional[float] = None,
+                 eccentric_first: Optional[bool] = None):
         self._up_is_decreasing = up_is_decreasing
         self._debounce_samples = debounce_samples
+        self._eccentric_first = eccentric_first
         self._non_extending_count = 0
         self._seg_points: List[Reading] = []
         self._trend: Optional[str] = None
@@ -165,22 +175,38 @@ class RepDetector:
         self._non_extending_count = 0
         return rep
 
-
     def _consume(self, segment: Segment) -> Optional[Rep]:
-        if segment.direction == "up":
-            self._pending_up = segment
+        if segment.rom_m + 1e-9 < MIN_REP_ROM_M:
+            return None
+
+        if self._eccentric_first is True:
+            # Exercise starts with descent (e.g. Squat, Bench Press)
+            if segment.direction == "up" and self._pending_down is None:
+                # Discard leading upward setup/unrack segment
+                return None
+            if segment.direction == "down":
+                self._pending_down = segment
+                return None
+            else:
+                self._pending_up = segment
+        elif self._eccentric_first is False:
+            # Exercise starts with ascent (e.g. Deadlift)
+            if segment.direction == "down" and self._pending_up is None:
+                # Discard leading downward segment
+                return None
+            if segment.direction == "up":
+                self._pending_up = segment
+                return None
+            else:
+                self._pending_down = segment
         else:
-            self._pending_down = segment
+            if segment.direction == "up":
+                self._pending_up = segment
+            else:
+                self._pending_down = segment
 
-        if self._pending_up is None or self._pending_down is None:
-            return None
-
-        up_is_long_enough = self._pending_up.rom_m + 1e-9 >= MIN_REP_ROM_M
-        down_is_long_enough = self._pending_down.rom_m + 1e-9 >= MIN_REP_ROM_M
-        if not (up_is_long_enough and down_is_long_enough):
-            self._pending_up = self._pending_up if up_is_long_enough else None
-            self._pending_down = self._pending_down if down_is_long_enough else None
-            return None
+            if self._pending_up is None or self._pending_down is None:
+                return None
 
         rep = Rep(
             self._rep_index,
@@ -193,4 +219,31 @@ class RepDetector:
         self._rep_index += 1
         self._pending_up = None
         self._pending_down = None
+        return rep
+
+    def flush(self) -> Optional[Rep]:
+        """Force-confirm any pending movement segment when the stream ends."""
+        if self._trend is None or self._extremum is None or not self._seg_points:
+            return None
+
+        closing = [p for p in self._seg_points if p.t <= self._extremum.t]
+        if not closing or closing[-1] != self._extremum:
+            closing.append(self._extremum)
+
+        if len(closing) < 2:
+            return None
+
+        rom = abs(closing[-1].distance_m - closing[0].distance_m)
+        if rom + 1e-9 < MIN_REP_ROM_M:
+            return None
+
+        falling = self._falling_means(self._trend)
+        segment = _build_segment(closing, self._trend, falling, self._set_d_10, self._set_d_90)
+        if self.on_segment:
+            self.on_segment(segment)
+
+        rep = self._consume(segment)
+        self._seg_points = []
+        self._extremum = None
+        self._trend = None
         return rep

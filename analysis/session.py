@@ -14,11 +14,14 @@ SAMPLING_TIMEOUT_S = 300.0  # 5 minutes
 
 class Session:
     def __init__(self, sensor: DistanceSensor, log_path: str, print_sensor: bool = False,
-                 print_rep: bool = False, dump_path: Optional[str] = None):
+                 print_rep: bool = False, dump_path: Optional[str] = None,
+                 up_is_decreasing: bool = False, eccentric_first: bool = True):
         self._sensor = sensor
         self._dump_path = dump_path
         self._dump_file = None
         self._dump_writer = None
+        self._up_is_decreasing = up_is_decreasing
+        self._eccentric_first = eccentric_first
 
         if self._dump_path is not None:
             dump_dir = os.path.dirname(os.path.abspath(self._dump_path))
@@ -33,7 +36,11 @@ class Session:
                 name = "Time up" if segment.direction == "up" else "Time down"
                 print(f"{name}: {segment.duration_s:.3f}s (max speed: {segment.max_speed_mps:.3f} m/s)")
 
-        self._detector = RepDetector(on_segment=handle_segment)
+        self._detector = RepDetector(
+            on_segment=handle_segment,
+            up_is_decreasing=up_is_decreasing,
+            eccentric_first=eccentric_first,
+        )
         self._logger = RepLogger(log_path)
         self._print_sensor = print_sensor
         self._print_rep = print_rep
@@ -93,7 +100,10 @@ class Session:
 
     def _stop_sampling_locked(self) -> None:
         self._is_sampling = False
-        self._sampling_result = calculate_sampling_result(self._sampling_buffer)
+        self._sampling_result = calculate_sampling_result(
+            self._sampling_buffer,
+            up_is_decreasing=self._up_is_decreasing,
+        )
 
         def handle_segment(segment):
             if self._print_rep:
@@ -103,7 +113,13 @@ class Session:
         set_d_10 = self._sampling_result.limit_10_m if self._sampling_result else None
         set_d_90 = self._sampling_result.limit_90_m if self._sampling_result else None
 
-        detector = RepDetector(on_segment=handle_segment, set_d_10=set_d_10, set_d_90=set_d_90)
+        detector = RepDetector(
+            on_segment=handle_segment,
+            up_is_decreasing=self._up_is_decreasing,
+            eccentric_first=self._eccentric_first,
+            set_d_10=set_d_10,
+            set_d_90=set_d_90,
+        )
         self._display = []
         for r in self._sampling_buffer:
             rep = detector.update(r)
@@ -111,6 +127,12 @@ class Session:
                 self._logger.log_rep(rep)
                 if len(self._display) < DISPLAY_REP_COUNT:
                     self._display.append(rep)
+
+        final_rep = detector.flush()
+        if final_rep is not None:
+            self._logger.log_rep(final_rep)
+            if len(self._display) < DISPLAY_REP_COUNT:
+                self._display.append(final_rep)
 
     def toggle_sampling(self) -> Dict[str, Any]:
         with self._lock:

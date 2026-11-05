@@ -197,3 +197,73 @@ def test_rep_avg_speed_up():
     assert rep is not None
     assert pytest.approx(rep.time_up_s) == 8.0
     assert pytest.approx(rep.avg_speed_up_mps) == 0.1
+
+
+def test_flush_recognizes_single_rep_without_trailing_reversal():
+    # Sensor on floor: up_is_decreasing=False (distance increases as bar moves up)
+    detector = RepDetector(up_is_decreasing=False, debounce_samples=1, eccentric_first=True)
+    
+    # 1. Start at top lockout (1.00m)
+    assert detector.update(Reading(t=0.0, distance_m=1.00)) is None
+    # 2. Descend to hole (0.40m)
+    assert detector.update(Reading(t=1.0, distance_m=0.40)) is None
+    # 3. Ascend to 0.46m (confirms hole turnaround)
+    assert detector.update(Reading(t=1.1, distance_m=0.46)) is None
+    # 4. Ascend all the way back to lockout (1.00m)
+    assert detector.update(Reading(t=2.0, distance_m=1.00)) is None
+
+    # Stream ends at lockout with no downward reversal.
+    # Without flush, rep is None because lockout turnaround was never confirmed by a reversal.
+    rep = detector.flush()
+    assert rep is not None
+    assert rep.index == 0
+    assert rep.time_down_s > 0
+    assert rep.time_up_s > 0
+
+
+def test_eccentric_first_ignores_unrack_upward_segment():
+    detector = RepDetector(up_is_decreasing=False, debounce_samples=1, eccentric_first=True)
+    
+    # Unrack: bar starts in hooks (0.85m), lifted up to 1.00m (ROM = 0.15m >= 0.10m)
+    detector.update(Reading(t=0.0, distance_m=0.85))
+    detector.update(Reading(t=0.5, distance_m=1.00))
+    # Settle dip (1.00 -> 0.94) confirms the unrack "up" segment
+    detector.update(Reading(t=0.8, distance_m=0.94))
+
+    # Rep 1 descent (0.94 -> 0.40)
+    detector.update(Reading(t=1.8, distance_m=0.40))
+    # Turnaround confirmation in hole
+    detector.update(Reading(t=1.9, distance_m=0.46))
+    # Rep 1 ascent (0.46 -> 1.00)
+    detector.update(Reading(t=2.8, distance_m=1.00))
+
+    # Finish set
+    rep = detector.flush()
+    assert rep is not None
+    assert rep.index == 0
+    # The downward duration must reflect the descent (0.94 -> 0.40), not 0.0
+    assert rep.time_down_s > 0
+    assert rep.time_up_s > 0
+
+
+def test_set_limits_fallback_for_shallower_rep():
+    # Global set limits from a set spanning 0.40m to 1.00m
+    # d_10 = 0.46m, d_90 = 0.94m
+    detector = RepDetector(
+        up_is_decreasing=False,
+        debounce_samples=1,
+        set_d_10=0.46,
+        set_d_90=0.94,
+        eccentric_first=True,
+    )
+    # A shallower rep that only reaches 0.50m (does not reach 0.46m)
+    detector.update(Reading(t=0.0, distance_m=1.00))
+    detector.update(Reading(t=1.0, distance_m=0.50))
+    detector.update(Reading(t=1.1, distance_m=0.56))  # turnaround in hole
+    detector.update(Reading(t=2.0, distance_m=1.00))  # lockout
+
+    rep = detector.flush()
+    assert rep is not None
+    assert rep.time_down_s > 0.0
+    assert rep.time_up_s > 0.0
+

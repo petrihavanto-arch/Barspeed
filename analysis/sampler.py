@@ -23,7 +23,7 @@ def _interp_time(p0: Reading, p1: Reading, target_d: float) -> float:
     return p0.t + frac * (p1.t - p0.t)
 
 
-def calculate_sampling_result(readings: List[Reading], up_is_decreasing: bool = True) -> Optional[SamplingResult]:
+def calculate_sampling_result(readings: List[Reading], up_is_decreasing: bool = False) -> Optional[SamplingResult]:
     valid = [r for r in readings if r.valid]
     if len(valid) < 2:
         return None
